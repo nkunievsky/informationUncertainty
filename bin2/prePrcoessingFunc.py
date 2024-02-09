@@ -2,45 +2,92 @@ import numpy as np
 import bin2.setGlobals as gl 
 # torch_device = gl.torch_device
 
-def logTransformation(col,inv=False):
-    if not inv :
-        col = col +1
+def logTransformation(col, inv=False):
+    """
+    Applies a logarithmic transformation to the input column. It supports both forward and inverse transformations.
+    
+    Parameters:
+    - col (np.ndarray): The input column to be transformed.
+    - inv (bool): Flag indicating whether to perform the inverse transformation. Default is False.
+    
+    Returns:
+    - np.ndarray: The transformed column.
+    """
+    if not inv:
+        col = col + 1
         col = np.log(col)
-    if inv:
+    else:
         col = np.exp(col)
-        col = col-1
-        '''
-        In theory we shouldn't get negative consumption, but we might get consumption between -1 and 0 due to noise. 
-        This as we take -1 from the inverse log. I'm trimming negative values here (which is a dollar difference). 
-        I'm not a huge fan of this, but not sure if anything is better. Also, I don't think that this happens a lot, but it happened once :\
-        '''
-        col[col<1e-3]=1e-3 
+        col = col - 1
+        # Trimming negative values to a small positive value due to potential noise-induced negative consumption
+        col[col < 1e-3] = 1e-3
     return col
 
-def standarize(data_norm,tmean,tstd,inv=False):
-    if not inv :
-        stdData = (data_norm - tmean)/tstd    
-    if inv : 
-        stdData = data_norm*tstd + tmean    
+def standarize(data_norm, tmean, tstd, inv=False):
+    """
+    Standardizes or reverse standardizes the input data based on the provided mean and standard deviation.
+    
+    Parameters:
+    - data_norm (np.ndarray): The input data to be standardized.
+    - tmean (float): The mean used for standardization.
+    - tstd (float): The standard deviation used for standardization.
+    - inv (bool): Flag indicating whether to perform the inverse standardization. Default is False.
+    
+    Returns:
+    - np.ndarray: The standardized or reverse standardized data.
+    """
+    if not inv:
+        stdData = (data_norm - tmean) / tstd
+    else:
+        stdData = data_norm * tstd + tmean
     return stdData
 
-def normalize(data_norm,tmax,tmin,typed,inv=False):
-    if not inv :
-        if typed=='Uniform':
-            data_norm = (data_norm - tmin)/(tmax-tmin)
-        else :
-            data_norm = (data_norm)/(tmax-tmin)
-    if inv : 
-        if typed=='Uniform':
-            data_norm = (data_norm)*(tmax-tmin) + tmin
-        else :
-            data_norm = (data_norm)*(tmax-tmin)
+def normalize(data_norm, tmax, tmin, typed, inv=False):
+    """
+    Normalizes or reverse normalizes the input data based on the provided maximum and minimum values.
+    
+    Parameters:
+    - data_norm (np.ndarray): The input data to be normalized.
+    - tmax (float): The maximum value used for normalization.
+    - tmin (float): The minimum value used for normalization.
+    - typed (str): Specifies the normalization type ('Uniform' or other types assumed to be linear scaling).
+    - inv (bool): Flag indicating whether to perform the inverse normalization. Default is False.
+    
+    Returns:
+    - np.ndarray: The normalized or reverse normalized data.
+    """
+    if not inv:
+        if typed == 'Uniform':
+            data_norm = (data_norm - tmin) / (tmax - tmin)
+        else:
+            data_norm = data_norm / (tmax - tmin)
+    else:
+        if typed == 'Uniform':
+            data_norm = data_norm * (tmax - tmin) + tmin
+        else:
+            data_norm = data_norm * (tmax - tmin)
     return data_norm
 
 
 
 def preprocessData(data,logs=True,std=True,Normalize=True,bandwidth=1.2,typed="Uniform",invert=False,invertDic={}):
-    
+    """
+    Preprocesses the given data with options for logarithmic transformation, standardization, and normalization.
+    It can also perform the inverse of these operations based on the provided dictionary.
+
+    Parameters:
+    - data (np.ndarray): The input data to preprocess.
+    - logs (bool): If True, applies logarithmic transformation. Default is True.
+    - std (bool): If True, standardizes the data. Default is True.
+    - Normalize (bool): If True, normalizes the data. Default is True.
+    - bandwidth (float): Scaling factor for normalization bounds. Default is 1.2.
+    - typed (str): The type of normalization, either "Uniform" or "Gaussian". Default is "Uniform".
+    - invert (bool): If True, performs the inverse preprocessing operations. Default is False.
+    - invertDic (dict): Dictionary containing parameters for inverse operations.
+
+    Returns:
+    - dict: A dictionary containing the preprocessed data and parameters used in preprocessing.
+    """
     if not invert:
         resDict = {'data': data,
                    'tmean' : None,
@@ -111,7 +158,22 @@ def preprocessData_colTypes(data,incomeConsumptionCOls,indicatorCols= [],contini
                             logs=True,std=True,Normalize=True,bandwidth=1.2,typed="Uniform",
                             logsCont=-99,stdCont=-99,NormalizeCont=-99,bandwidthCont=-99,typedCont=-99
                             ): 
-        
+    """
+    Preprocesses data with different treatments for income/consumption, continuous, and indicator columns.
+
+    Parameters:
+    - data (np.ndarray): The input data array.
+    - incomeConsumptionCols (list): Column indices for income and consumption data.
+    - indicatorCols (list): Column indices for indicator variables.
+    - continiousCols (list): Column indices for continuous variables.
+    - logs, std, Normalize (bool): Flags to apply logarithmic transformation, standardization, and normalization.
+    - bandwidth, typed (float, str): Parameters for normalization.
+    - logsCont, stdCont, NormalizeCont, bandwidthCont, typedCont: Specific preprocessing parameters for continuous columns.
+
+    Returns:
+    - list: A list containing dictionaries for preprocessed income/consumption, continuous, and indicator data.
+    """
+
     #Income and consumption type columns:    
     conincData = data[:,incomeConsumptionCOls]    
     colNumber = conincData.shape[1]

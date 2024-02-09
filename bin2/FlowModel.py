@@ -120,6 +120,24 @@ class ResNetDynamicFLOW_normalDraws(nn.Module):
 
 
 class resBlockAutoRegressiveDynamicFLOW_normalDraws(nn.Module):
+    """
+    Implements an autoregressive dynamic flow model with a configurable base distribution and mixture distribution for
+    normal draws. 
+
+    Parameters:
+    - mixture_dist (str): The type of mixture distribution to use, currently supports 'gaussian'.
+    - condVecSize (int): The size of the conditional vector.
+    - n_components (int): The number of components in the mixture distribution.
+    - mlp_hidden_size (int): The hidden layer size for the MLPs within the model.
+    - n_blocks (int): The number of blocks in each MLP.
+    - lastColumnToPredict (list of int): Indices of the last columns to predict, allowing for selective modeling.
+    - base (str): The base distribution of the flow, supports 'Uniform' or 'gaussian'.
+
+    The model dynamically generates a series of MLPs based on the specified last columns to predict, allowing for
+    autoregressive modeling of conditional distributions. It uses a mixture of distributions for flexibility in
+    modeling complex data patterns.
+    """
+
     def __init__(self, 
                  mixture_dist='gaussian', 
                  condVecSize = 20,
@@ -157,7 +175,20 @@ class resBlockAutoRegressiveDynamicFLOW_normalDraws(nn.Module):
     #Inversion Functions#
     #####################
     def invertSample(self,x,finalCol,lb=-20,ub=20):
-        #Functions 
+        """
+        Inverts a sample from the model output back to its original space, using a bisection method for inversion.
+        
+        Parameters:
+        - x (Tensor): The input tensor to the model.
+        - finalCol (int): The final column index to be predicted.
+        - lb (float): The lower bound for the bisection method.
+        - ub (float): The upper bound for the bisection method.
+        
+        Returns:
+        - Tensor: The inverted sample.
+        - int: A flag indicating whether the inversion was successful.
+        """
+ 
         
         def bisectionInvert(func,objVec,a,b,*args):
             #Fixed parameters
@@ -219,6 +250,18 @@ class resBlockAutoRegressiveDynamicFLOW_normalDraws(nn.Module):
     # Flow Functions #
     ##################
     def flow(self, x,verbose=False):
+        """
+        Processes the input through the flow model, transforming it according to the learned distribution mappings.
+        
+        Parameters:
+        - x (Tensor): The input tensor.
+        - verbose (bool): If True, returns additional diagnostic information.
+        
+        Returns:
+        - Tensor: The transformed tensor.
+        - Tensor: The log determinant of the Jacobian of the transformations.
+        """
+
         x = x.float()
         zs = []
         log_dets = [] 
@@ -251,6 +294,9 @@ class resBlockAutoRegressiveDynamicFLOW_normalDraws(nn.Module):
             return torch.cat(zs,dim=1), torch.cat(log_dets,dim=1)
 
     def log_prob(self, x,verbose=False):
+        """
+        Computes the log probability of the input data under the model.
+        """
         if verbose:
             z, log_det = self.flow(x)
             return (self.base_dist.log_prob(z) + log_det)
@@ -259,5 +305,8 @@ class resBlockAutoRegressiveDynamicFLOW_normalDraws(nn.Module):
             return (self.base_dist.log_prob(z) + log_det).mean(dim=1) # shape: [batch_size, dim] - changed thiS!
 
     def nll(self, x):
+        """
+        Computes the negative log-likelihood of the input data under the model.
+        """
         return -self.log_prob(x).mean()
     

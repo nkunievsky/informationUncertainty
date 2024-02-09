@@ -21,7 +21,9 @@ from bin2.prePrcoessingFunc import *
 
 torch_device = gl.torch_device
 
-
+#############
+## Helpers ##
+#############
 def toVec(x):
     if isinstance(x,list):
         x = np.array(x)
@@ -31,6 +33,9 @@ def toVec(x):
     else :
         return x.reshape(-1,1)
 
+#######################
+## Eyeball Functions ##
+#######################
 
 def sampleGenerator(data,model,maxObservations=False):
     if ~maxObservations:
@@ -289,17 +294,38 @@ def plotDensity(individualHistory,model,contiCols=[0,1],indCols=[],incomeConCols
     # return jointDensity, jointDenistyTable,density
 
 
-##############################
-# Graph Generating Functions #
-##############################
+###################################
+# Generating Panel Data Functions #
+###################################
+
 ## Not the most flexiable thingy. 
 # Add a option to add columns 
-
 
 def genPanelData(panelData,model,contiCols=[],indCols=[],incomeConCols=[],
                 incom_dic=[],contin_dic=[],binary_dic=[],parameters={},
                 R=(1+0.0051585),colList=[-2,-1],T = 5,forceBiSecConverge=False
                 ):
+
+    """
+    Generates panel data by simulating future values based on a given model and initial data.
+
+    Parameters:
+    - panelData (np.ndarray): The initial panel data.
+    - model: The model used for simulation.
+    - contiCols (list): Indices of continuous columns.
+    - indCols (list): Indices of indicator columns.
+    - incomeConCols (list): Indices of income and consumption columns.
+    - incom_dic, contin_dic, binary_dic (dict): Dictionaries for income/consumption, continuous, and binary data preprocessing.
+    - parameters (dict): Additional model parameters.
+    - R (float): The interest rate for capital updates.
+    - colList (list): Column indices for simulated data updates.
+    - T (int): Number of time periods to simulate.
+    - forceBiSecConverge (bool): Flag to force convergence in bisection method.
+
+    Returns:
+    - tuple: (updated panel data, original age and capital data, flag indicating success or failure).
+    """
+
     #CLIPS THE SIMULATED VALUES IF THEY ARE WAY OVER THE TOP 
     def clipper(col,maxIncome):
         return (col<maxIncome)*col + (col>=maxIncome)*maxIncome

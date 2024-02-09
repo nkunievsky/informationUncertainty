@@ -13,6 +13,29 @@ Things I need to add
 - Introduce death. This would make things more reasonalbe
 '''
 class infomrationValueClass():
+
+    """
+    This class is calculateד the value of information for individuals within a dataset, 
+    based on their income and consumption data across different ages. It supports the estimation of 
+    optimal consumption paths, realized consumption paths, and the computation of information cost 
+    (difference in utility between optimal and realized consumption paths).
+
+    Parameters:
+    - dataList (list of np.ndarray): A list containing datasets for individuals or cohorts.
+    - targetAge (int): The target age (in months) up to which the analysis is conducted.
+    - maxAge (int): The maximum age (in months) considered in the lifespan.
+    - indCols (list of int): Indices of indicator columns in the dataset.
+    - continiousCols (list of int): Indices of continuous columns in the dataset.
+    - beta (float): The discount factor used in utility calculations.
+    - R (float): The interest rate used for capital accumulation.
+    - flowUtility (callable, optional): A custom utility function, if different from the default CRRA utility.
+    - Solver (str): The solver used for optimization in CVXPY.
+    - verbose (bool): If True, enables verbose output during computations.
+    - num_observations (int): The number of observations to consider in the analysis.
+
+    The class provides methods to prepare data, calculate optimal consumption paths, realized consumption paths,
+    and finally, the information cost.
+    """
     def __init__(self,dataList,targetAge=40*12,maxAge=70*12, indCols=[],continiousCols=[],
                 beta=0.995,R=1.005,flowUtility=False,Solver='ECOS',verbose=False,num_observations=100):
         self.verbose = verbose
@@ -55,6 +78,19 @@ class infomrationValueClass():
         self.optimC = None 
     
     def calculateBoundaryCondition(self,assetCol,incomeCols,ConsumptionCols,R):
+        """
+        Calculates the end-of-life asset levels based on initial assets, income, and consumption over time.
+        
+        Parameters:
+        - assetCol (np.ndarray): The initial assets for each individual.
+        - incomeCols (np.ndarray): Income streams for individuals.
+        - ConsumptionCols (np.ndarray): Consumption streams for individuals.
+        - R (float): The interest rate used for capital updates.
+        
+        Returns:
+        - np.ndarray: The assets at the end of life for each individual.
+        """
+
         assets = assetCol.copy()
         for t in range(incomeCols.shape[1]-1):
             assets = assets*R + (incomeCols[:,t] - ConsumptionCols[:,t])
@@ -64,9 +100,8 @@ class infomrationValueClass():
 
     def dataValidation(self):
         '''
-        I check if the total assets+income over the lifetime is higher than the lifetime consumption. 
-        I don't have a way to impose this directly in the estimation, so in some low probability this can happen 
-        ** Note - I NEED TO ADD A COUNTER TO SEE HOW MANY PEOPLE ARE LIKE THIS!! **
+        Validates the dataset to ensure that the present value of assets plus income is at least as large as
+        the present value of consumption. This method filters out individuals who do not meet this criterion due to noise.
         '''
         #Test Present Value Validation
         numCols = self.balancedData.shape[1]-self.numNonIncomeConsumptionCols
@@ -84,6 +119,11 @@ class infomrationValueClass():
 
 
     def createBalancedPanel(self):
+        """
+        Prepares a balanced panel dataset that aligns income and consumption streams with the target age,
+        adjusting for the accumulation of assets over time.
+        """
+
         balancedData = []
         # for d in notebook.tqdm(self.finData,desc="Creating Balanced Panel",leave=False):            
 
@@ -147,6 +187,17 @@ class infomrationValueClass():
 
         
     def optimalConsumption(self,returnValue = False): 
+        """
+        Solves for the optimal consumption path that maximizes the utility of individuals given their income
+        streams and initial capital, using convex optimization.
+        
+        Parameters:
+        - returnValue (bool): If True, returns the calculated optimal utility values.
+        
+        Returns:
+        - Optional[np.ndarray]: The optimal utility values, if returnValue is True.
+        """
+
     # solve for the Optimal Consumption Path 
         
         if self.incomeStreams is None :
@@ -160,7 +211,7 @@ class infomrationValueClass():
         finalAssets = np.zeros(shape=(self.lifecycles,1)) #Consuming everything at the end 
         atMatrix = cp.hstack([A,finalAssets])
         #Set constraints 
-        constraints = [C + atMatrix - atMinus1Matrix*self.R - self.incomeStreams==0 ] #Equality seems to do better numerically than <= 
+        constraints = [C + atMatrix - atMinus1Matrix*self.R - self.incomeStreams==0 ] #BC = Equality seems to do better numerically than <= 
         #Set objective 
         obj = cp.sum(cp.multiply(self.flowUtility(C),self.discountMatrix))
         objExpression = cp.Maximize(obj)
@@ -196,7 +247,7 @@ class infomrationValueClass():
         print('Solved after '+ str(attempt) + ' attempts')
           
         ###################################################################
-        if prob.status  != 'optimal': #maybe Think about it abit more ... 
+        if prob.status  != 'optimal':  
           print('I gave up')
           self.optimalUtil_val = [None,None ]
           return self.optimalUtil_val
@@ -209,9 +260,18 @@ class infomrationValueClass():
             return self.optimalUtil_val
 
     def realizedConsumption(self,returnValue = False):
+        """
+        Calculates the utility of the realized consumption path, adjusting the final period consumption
+        to ensure all assets are consumed.
+        
+        Parameters:
+        - returnValue (bool): If True, returns the calculated realized utility values.
+        
+        Returns:
+        - Optional[np.ndarray]: The realized utility values, if returnValue is True.
+        """
         # Accumelate assets over time till the end - change consumption at last year to consume it all
         #Need to think more on death 
-
         #Adjusting consumption to consume everything in the last period
 
         assets = self.initalCapital
@@ -230,6 +290,17 @@ class infomrationValueClass():
         
     
     def informationCost(self,returnValue = False):
+        """
+        Computes the information cost as the difference in utility between the optimal and realized
+        consumption paths.
+        
+        Parameters:
+        - returnValue (bool): If True, returns the information cost.
+        
+        Returns:
+        - Optional[np.ndarray]: The information cost, if returnValue is True.
+        """
+
         # 1==1
         if self.optimalUtil_val is None :
             self.optimalConsumption(returnValue = False)
@@ -252,9 +323,9 @@ class infomrationValueClass():
 ## ADMM SOLVER - NOT USED ##
 ############################
 '''
-## ADMM trial - didn't pan out I think. not sure why
-The reaosn it didn't pan out was that it generated lower value than the observed value from consumption. 
-Trying the save with a simple convex solver didn't gave me that. not sure I'm implementing wrong or is it just hard to converge
+## ADMM trial - didn't work. 
+The reaosn it didn't work was that it generated lower value than the observed value from consumption. 
+Trying the save with a simple convex solver didn't gave me that. Seems that ADMM does not give good approximation
 '''
 # def logUtilityFunc(v):
 #     return torch.log(v)

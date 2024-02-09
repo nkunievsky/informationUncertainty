@@ -10,7 +10,7 @@ The files for generating the data to train the model are located in the **"dataG
 ## Model Training
 - To estimate the Flow Model run **flowModelEstimation.ipynb** in **ModelEstimation** folder.
 ## Uncertainty Estimation
-To estimate the future life time trajectory and , run the following files in the **"UncertaintyEstimation"** folder:
-simulating_and_estimating_main
+- To estimate the future life time trajectory and , run the following files in the **"UncertaintyEstimation"** folder. Finaly to plot the results run **"PlotsUncertainty.ipynb"**.
+
 ## Other
 - Bin2 includes the code for the model, and helper function for the uncertainty estimation.
